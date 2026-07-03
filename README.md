@@ -4,7 +4,7 @@ A **tenant-agnostic**, single-page test harness for driving any NXLINK webchat b
 real browser. Paste a widget **JWT**, save it under a name for reuse, and launch the bot —
 **no login, fully anonymous**. Everything runs client-side; nothing is uploaded.
 
-**Live page:** _(enabled via GitHub Pages — see the repo's Pages settings)_
+**Live page:** https://taweewut.github.io/nxlink-webchat-tester/
 
 ## What it does
 
