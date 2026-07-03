@@ -1,0 +1,13 @@
+# Never commit secrets or local auth state
+*.env
+.env
+*_state.json
+playwright_session.json
+*.token.json
+admin_api.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>NXLINK WebChat Tester — Generic POC</title>
+<style>
+  :root{
+    --bg:#f2f5f9; --card:#ffffff; --ink:#1a2230; --muted:#5b6675;
+    --line:#e4e9f0; --brand:#2563eb; --brand-ink:#1d4ed8;
+    --ok:#16a34a; --okbg:#f0fdf4; --okln:#bbf7d0;
+    --err:#dc2626; --errbg:#fef2f2; --errln:#fecaca;
+    --warn:#b45309; --warnbg:#fffbeb; --warnln:#fde68a;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,'Courier New',monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f141b; --card:#171e28; --ink:#e6ecf3; --muted:#9aa7b6;
+      --line:#26303c; --brand:#3b82f6; --brand-ink:#60a5fa;
+      --okbg:#0e1f16; --okln:#1f7a44; --errbg:#241315; --errln:#7a2230;
+      --warnbg:#241d0f; --warnln:#7a5a1f;
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;line-height:1.5}
+  a{color:var(--brand-ink)}
+  code{font-family:var(--mono);font-size:.92em}
+  .header{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:16px 22px;display:flex;align-items:center;gap:14px}
+  .logo{width:38px;height:38px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.35);border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
+  .h-title{font-size:17px;font-weight:700}
+  .h-sub{font-size:11.5px;opacity:.85;margin-top:2px}
+  .h-tag{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.05em;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.12)}
+  .wrap{max-width:840px;margin:22px auto;padding:0 16px 130px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .card h2{font-size:11.5px;font-weight:800;color:var(--brand-ink);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+  .card h2 .n{width:20px;height:20px;border-radius:6px;background:var(--brand);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+  .req{color:var(--err);font-weight:800;margin-left:4px;font-size:10px;letter-spacing:.05em}
+  .optn{color:var(--muted);font-weight:600;margin-left:4px;text-transform:none;letter-spacing:0;font-size:11px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--ink);margin:0 0 5px}
+  label .opt{font-weight:400;color:var(--muted);margin-left:5px}
+  input,select,textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;color:var(--ink);background:var(--bg);transition:border-color .15s}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);background:var(--card)}
+  input.mono,textarea.mono{font-family:var(--mono);font-size:11.5px}
+  textarea{resize:vertical;min-height:72px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.row{grid-template-columns:1fr}}
+  .field{margin-bottom:12px}
+  .field:last-child{margin-bottom:0}
+  .actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:4px}
+  .btn{padding:10px 20px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid transparent;transition:all .15s;font-family:inherit}
+  .btn-primary{background:var(--brand);color:#fff}
+  .btn-primary:hover{filter:brightness(1.06)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+  .btn-ghost:hover{border-color:var(--brand);color:var(--brand-ink)}
+  .btn-danger{background:transparent;color:var(--err);border-color:var(--errln)}
+  .btn-danger:hover{background:var(--errbg)}
+  .btn-sm{padding:6px 12px;font-size:12px}
+  .banner{padding:9px 13px;border-radius:8px;font-size:12.5px;margin-top:11px;display:none;border:1px solid transparent}
+  .banner.show{display:block}
+  .banner.ok{background:var(--okbg);border-color:var(--okln);color:var(--ok)}
+  .banner.err{background:var(--errbg);border-color:var(--errln);color:var(--err)}
+  .banner.warn{background:var(--warnbg);border-color:var(--warnln);color:var(--warn)}
+  .banner.info{background:var(--bg);border-color:var(--line);color:var(--muted)}
+  .profiles{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .profiles select{flex:1;min-width:180px}
+  .decode{margin-top:11px;border:1px solid var(--line);border-radius:9px;overflow:hidden;display:none}
+  .decode.show{display:block}
+  .decode table{width:100%;border-collapse:collapse;font-size:12px}
+  .decode td{padding:7px 12px;border-bottom:1px solid var(--line)}
+  .decode tr:last-child td{border-bottom:none}
+  .decode td:first-child{color:var(--muted);width:130px;font-weight:600}
+  .decode td:last-child{font-family:var(--mono);word-break:break-all}
+  .pill{display:inline-block;padding:2px 9px;border-radius:11px;font-size:10.5px;font-weight:700}
+  .pill.ok{background:var(--okbg);color:var(--ok);border:1px solid var(--okln)}
+  .pill.err{background:var(--errbg);color:var(--err);border:1px solid var(--errln)}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.6}
+  .preview{background:#0b1220;color:#dbe4f0;border-radius:9px;padding:13px 15px;font-family:var(--mono);font-size:11px;line-height:1.7;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin-top:11px}
+  .preview .k{color:#7cc0ff}.preview .s{color:#8ee6a8}.preview .c{color:#64748b;font-style:italic}.preview .u{color:#f5c451}
+  .foot{text-align:center;font-size:11px;color:var(--muted);margin-top:22px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">NX</div>
+  <div>
+    <div class="h-title">NXLINK WebChat Tester</div>
+    <div class="h-sub">Generic, tenant-agnostic POC · paste a JWT, save it by name, launch the bot · no login required</div>
+  </div>
+  <div class="h-tag">ANONYMOUS</div>
+</div>
+
+<div class="wrap">
+
+  <!-- 1 · Saved profiles -->
+  <div class="card">
+    <h2><span class="n">1</span> Saved JWT Profiles</h2>
+    <div class="profiles">
+      <select id="profileSel" onchange="loadProfile()">
+        <option value="">— No profile selected —</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="deleteProfile()">Delete</button>
+    </div>
+    <div class="hint">Profiles live only in <strong>this browser</strong> (localStorage) — nothing is uploaded. Fill in a JWT below and press <em>Save as Profile</em> to store it under a memorable name for reuse.</div>
+  </div>
+
+  <!-- 2 · JWT -->
+  <div class="card">
+    <h2><span class="n">2</span> Widget JWT <span class="req">REQUIRED</span></h2>
+    <div class="field">
+      <label>Paste JWT <span class="opt">— the non-secret visitor token for the bot / config you want to test</span></label>
+      <textarea id="jwt" class="mono" placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9…" oninput="onJwtInput()"></textarea>
+    </div>
+    <div class="decode" id="decode"></div>
+  </div>
+
+  <!-- 3 · Client script -->
+  <div class="card">
+    <h2><span class="n">3</span> Live-Chat Client Script <span class="req">REQUIRED</span></h2>
+    <div class="field">
+      <label>NXLINK <code>live_chat.min.js</code> base URL <span class="opt">— region host may differ per tenant</span></label>
+      <input type="text" id="clientUrl" class="mono" oninput="refresh()" />
+    </div>
+    <div class="hint">The JWT is appended as <code>?jwt=&lt;token&gt;&amp;vtime=&lt;timestamp&gt;</code> when the widget loads — exactly the NXLINK embed snippet. This script is the generic client and is not a secret; only the host/region changes per deployment. Saved inside each profile.</div>
+  </div>
+
+  <!-- 4 · Identity -->
+  <div class="card">
+    <h2><span class="n">4</span> Visitor Identity <span class="optn">optional · only used by the Chat Proxy in Section 6</span></h2>
+    <div class="row">
+      <div class="field"><label>Name <span class="opt">name</span></label><input type="text" id="custName" placeholder="(blank → anonymous)" oninput="refresh()" /></div>
+      <div class="field"><label>Phone <span class="opt">phone (E.164, e.g. 668…)</span></label><input type="text" id="phoneOrigin" placeholder="(blank → anonymous)" oninput="refresh()" /></div>
+    </div>
+    <div class="hint">The embedded widget (Section 5) always starts <strong>anonymous</strong> and collects identity in its own pre-chat form — these fields are ignored there. They only feed the Chat Proxy launch (Section 6), which re-attaches by name+phone, so use a <strong>unique</strong> pair per test to avoid contaminating an earlier conversation.</div>
+  </div>
+
+  <!-- 5 · Launch -->
+  <div class="card">
+    <h2><span class="n">5</span> Launch Embedded Widget</h2>
+    <div class="actions">
+      <button class="btn btn-primary" id="btnLaunch" onclick="launchWidget()">💬 Load Chat Widget</button>
+      <button class="btn btn-ghost" onclick="saveProfile()">💾 Save as Profile…</button>
+      <button class="btn btn-ghost" onclick="location.reload()">🔄 Reset Page / Clear Session</button>
+    </div>
+    <div class="banner" id="launchBanner"></div>
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <!-- 6 · Chat Proxy (optional) -->
+  <div class="card">
+    <h2><span class="n">6</span> Chat Proxy <span class="optn">optional · stable full-page session that survives refresh</span></h2>
+    <div class="field">
+      <label>Proxy start URL <span class="opt">— e.g. …/NXAI_ChatProxy/chat/start</span></label>
+      <input type="text" id="proxyUrl" class="mono" placeholder="https://&lt;host&gt;/NXAI_ChatProxy/chat/start" oninput="refresh()" />
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost" onclick="launchProxy()">🔀 Open via Chat Proxy (new tab)</button>
+    </div>
+    <div class="banner" id="proxyBanner"></div>
+    <div class="hint">Opens a full-page chat that re-attaches to the same session on refresh (by name+phone). The start URL carries <code>jwt</code>, <code>name</code> &amp; <code>phone</code> as query params — visible in browser history/logs — so use non-production test identities only.</div>
+  </div>
+
+  <div class="foot">
+    Generic NXLINK webchat test harness · runs entirely client-side · no server, no login, no analytics.<br/>
+    JWTs &amp; profiles never leave your browser. Use non-production tenants for testing.
+  </div>
+
+  <div id="nxchat-root"></div>
+</div>
+
+<script>
+const LS_KEY  = 'nxwct.profiles.v1';
+const LS_LAST = 'nxwct.last.v1';
+// Generic NXLINK live-chat client. Host/region may differ per tenant — editable & saved per profile.
+const DEFAULT_CLIENT_URL = 'https://idn.nxlink.ai/chatbot/client/js/live_chat.min.js';
+let widgetLoaded = false;
+
+/* ---------- storage ---------- */
+function getProfiles(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || []; }catch(e){ return []; } }
+function setProfiles(p){ localStorage.setItem(LS_KEY, JSON.stringify(p)); }
+
+function renderProfiles(selectId){
+  const sel = document.getElementById('profileSel');
+  const list = getProfiles();
+  sel.innerHTML = '<option value="">— No profile selected —</option>' +
+    list.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  if(selectId) sel.value = selectId;
+}
+
+function saveProfile(){
+  const jwt = val('jwt');
+  if(!jwt){ banner('launchBanner','err','Paste a JWT first — nothing to save.'); return; }
+  const name = prompt('Save this JWT under what name?', suggestName());
+  if(name === null) return;
+  const trimmed = name.trim();
+  if(!trimmed){ banner('launchBanner','err','Name cannot be empty.'); return; }
+  const list = getProfiles();
+  const existing = list.find(p => p.name.toLowerCase() === trimmed.toLowerCase());
+  const rec = {
+    id: existing ? existing.id : genId(),
+    name: trimmed, jwt,
+    clientUrl: val('clientUrl'), proxyUrl: val('proxyUrl'),
+    custName: val('custName'), phoneOrigin: val('phoneOrigin')
+  };
+  if(existing){ Object.assign(existing, rec); } else { list.push(rec); }
+  setProfiles(list);
+  renderProfiles(rec.id);
+  banner('launchBanner','ok', `Saved profile “${escapeHtml(trimmed)}”. It will be in Section 1 next visit too.`);
+}
+
+function loadProfile(){
+  const id = document.getElementById('profileSel').value;
+  if(!id) return;
+  const p = getProfiles().find(x => x.id === id);
+  if(!p) return;
+  set('jwt', p.jwt||''); set('clientUrl', p.clientUrl||DEFAULT_CLIENT_URL);
+  set('proxyUrl', p.proxyUrl||''); set('custName', p.custName||''); set('phoneOrigin', p.phoneOrigin||'');
+  onJwtInput();
+  banner('launchBanner','info', `Loaded profile “${escapeHtml(p.name)}”.`);
+}
+
+function deleteProfile(){
+  const id = document.getElementById('profileSel').value;
+  if(!id){ banner('launchBanner','warn','Select a profile to delete first.'); return; }
+  const p = getProfiles().find(x => x.id === id);
+  if(!confirm(`Delete profile “${p ? p.name : id}”? This only removes it from this browser.`)) return;
+  setProfiles(getProfiles().filter(x => x.id !== id));
+  renderProfiles('');
+  banner('launchBanner','info','Profile deleted.');
+}
+
+/* ---------- JWT decode ---------- */
+function decodeJwt(jwt){
+  try{
+    const parts = jwt.split('.');
+    if(parts.length < 2) return null;
+    const b64 = parts[1].replace(/-/g,'+').replace(/_/g,'/');
+    return JSON.parse(decodeURIComponent(escape(atob(b64))));
+  }catch(e){ return null; }
+}
+
+function onJwtInput(){
+  const jwt = val('jwt');
+  const box = document.getElementById('decode');
+  if(!jwt){ box.className='decode'; box.innerHTML=''; refresh(); return; }
+  const p = decodeJwt(jwt);
+  if(!p){
+    box.className='decode show';
+    box.innerHTML = `<table><tr><td>status</td><td><span class="pill err">could not decode</span> — is this a valid JWT?</td></tr></table>`;
+    refresh(); return;
+  }
+  const now = Math.floor(Date.now()/1000);
+  const exp = p.exp ? Number(p.exp) : null;
+  const expired = exp && exp < now;
+  const expTxt = exp ? `${new Date(exp*1000).toISOString().replace('T',' ').slice(0,16)} UTC ` +
+      (expired ? '<span class="pill err">EXPIRED</span>' : '<span class="pill ok">valid</span>') : '—';
+  const rows = [
+    ['tenant_id', p.tenant_id ?? '—'],
+    ['config_id', p.config_id ?? '—'],
+    ['name', p.name ?? '—'],
+    ['aud', p.aud ?? '—'],
+    ['iss', p.iss ?? '—'],
+    ['expires', expTxt]
+  ];
+  box.className='decode show';
+  box.innerHTML = '<table>' + rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('') + '</table>';
+  refresh();
+}
+
+/* ---------- preview: shows the exact embed that will be injected ---------- */
+function clientSrc(jwt){
+  const base = val('clientUrl') || DEFAULT_CLIENT_URL;
+  const sep = base.includes('?') ? '&' : '?';
+  return `${base}${sep}jwt=${jwt}&vtime=${Date.now()}`;
+}
+function refresh(){
+  saveLast();
+  const jwt = val('jwt');
+  const lines = [
+    `<span class="c">// injected on “Load Chat Widget” — the NXLINK live-chat embed</span>`,
+    `<span class="k">const</span> s = document.createElement(<span class="s">'script'</span>);`,
+    `s.id  = <span class="s">'live-chat-script'</span>;`,
+    `s.src = <span class="u">'${escapeHtml(jwt ? clientSrc('<JWT>') : (val('clientUrl')||DEFAULT_CLIENT_URL)+'?jwt=(required)&vtime=…')}'</span>;`,
+    `document.head.appendChild(s);`
+  ];
+  document.getElementById('preview').innerHTML = lines.join('\n');
+}
+
+/* ---------- launch embedded widget ---------- */
+function launchWidget(){
+  const jwt = val('jwt');
+  const base = val('clientUrl') || DEFAULT_CLIENT_URL;
+  if(!jwt){ banner('launchBanner','err','A JWT is required (Section 2).'); return; }
+  if(!base){ banner('launchBanner','err','A client script URL is required (Section 3).'); return; }
+  const p = decodeJwt(jwt);
+  if(p && p.exp && Number(p.exp) < Math.floor(Date.now()/1000)){
+    if(!confirm('This JWT appears EXPIRED. Load anyway?')) return;
+  }
+  if(widgetLoaded || document.getElementById('live-chat-script')){
+    banner('launchBanner','warn','A widget is already loaded on this page. Use “Reset Page / Clear Session” first to start clean.');
+    return;
+  }
+  const s = document.createElement('script');
+  s.id = 'live-chat-script';
+  s.src = clientSrc(encodeURIComponent(jwt));
+  s.onload  = () => banner('launchBanner','ok','Widget loaded. Look for the chat bubble/popup (usually bottom-right). Use “Reset Page” to start a fresh session.');
+  s.onerror = () => banner('launchBanner','err','Failed to load the client script — check the URL / network / CORS.');
+  document.head.appendChild(s);
+  widgetLoaded = true;
+  banner('launchBanner','info','Loading live-chat client…');
+}
+
+/* ---------- chat proxy ---------- */
+function launchProxy(){
+  const jwt = val('jwt'); const base = val('proxyUrl');
+  if(!jwt){ banner('proxyBanner','err','A JWT is required (Section 2).'); return; }
+  if(!base){ banner('proxyBanner','err','Enter the proxy start URL first.'); return; }
+  let u;
+  try{ u = new URL(base); }catch(e){ banner('proxyBanner','err','Proxy start URL is not a valid URL.'); return; }
+  u.searchParams.set('jwt', jwt);
+  if(val('custName')) u.searchParams.set('name', val('custName'));
+  if(val('phoneOrigin')) u.searchParams.set('phone', val('phoneOrigin'));
+  window.open(u.toString(), '_blank', 'noopener');
+  banner('proxyBanner','ok','Opened chat proxy in a new tab.');
+}
+
+/* ---------- helpers ---------- */
+function val(id){ return (document.getElementById(id).value || '').trim(); }
+function set(id,v){ document.getElementById(id).value = v; }
+function genId(){ return 'p_' + Math.floor(performance.now()*1000).toString(36) + '_' + getProfiles().length; }
+function suggestName(){
+  const p = decodeJwt(val('jwt'));
+  if(p && (p.tenant_id || p.config_id)) return `tenant ${p.tenant_id||'?'} · config ${p.config_id||'?'}`;
+  return 'My bot';
+}
+function banner(id,type,msg){
+  const el = document.getElementById(id);
+  el.className = 'banner show ' + type;
+  el.innerHTML = msg;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function saveLast(){
+  const d = {jwt:val('jwt'),clientUrl:val('clientUrl'),proxyUrl:val('proxyUrl'),custName:val('custName'),phoneOrigin:val('phoneOrigin')};
+  try{ localStorage.setItem(LS_LAST, JSON.stringify(d)); }catch(e){}
+}
+function restoreLast(){
+  try{
+    const d = JSON.parse(localStorage.getItem(LS_LAST));
+    set('clientUrl', (d && d.clientUrl) || DEFAULT_CLIENT_URL);
+    if(!d) return;
+    set('jwt',d.jwt||''); set('proxyUrl',d.proxyUrl||'');
+    set('custName',d.custName||''); set('phoneOrigin',d.phoneOrigin||'');
+  }catch(e){ set('clientUrl', DEFAULT_CLIENT_URL); }
+}
+
+/* ---------- init ---------- */
+renderProfiles();
+restoreLast();
+onJwtInput();
+</script>
+</body>
+</html>
