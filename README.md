@@ -41,6 +41,25 @@ Save all of the above together as a **profile** and pick it from the dropdown ne
 - Widget JWTs are non-secret visitor tokens by design, but **use non-production tenants**
   for testing — proxy URLs carry the JWT/name/phone as query params (visible in history).
 
+## Troubleshooting: "Domain mismatch" / blank chat panel
+
+The widget injects fine but the chat panel renders **blank/white** and the console floods
+with `Received message: MessageEvent`. This is NXLINK's embedding-domain check failing.
+
+The chat app derives the embedding host from `URL(window.location.ancestorOrigins[0]).host`
+— the **bare hostname**, e.g. `taweewut.github.io` (no `https://`, no path) — and requires an
+**exact** match against the channel's **Customer Website Domain** (or a `*.` wildcard, or any
+`*.nxcloud.com` / `*.nxlink.ai` host which is always allowed for their in-console preview).
+
+**Fix:** in *Edit Chat Channel → Customer Website Domain*, enter the **bare host**, not a URL:
+
+| ❌ Wrong | ✅ Correct |
+|---|---|
+| `https://taweewut.github.io` | `taweewut.github.io` |
+| `https://taweewut.github.io/nxlink-webchat-tester/` | `taweewut.github.io` (or `*.github.io`) |
+
+The scheme (`https://`) breaks the exact string compare; the subpath is never part of `.host`.
+
 ## Run locally
 
 Just open `index.html` in a browser, or serve the folder:
