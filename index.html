@@ -78,6 +78,8 @@
   .preview{background:#0b1220;color:#dbe4f0;border-radius:9px;padding:13px 15px;font-family:var(--mono);font-size:11px;line-height:1.7;overflow-x:auto;white-space:pre-wrap;word-break:break-all;margin-top:11px}
   .preview .k{color:#7cc0ff}.preview .s{color:#8ee6a8}.preview .c{color:#64748b;font-style:italic}.preview .u{color:#f5c451}
   .foot{text-align:center;font-size:11px;color:var(--muted);margin-top:22px;line-height:1.7}
+.freshbox{display:flex;gap:.6rem;align-items:flex-start;margin-top:.9rem;font-size:.82rem;color:#94a3b8;line-height:1.5}
+.freshbox input{margin-top:.2rem;flex:none}
 </style>
 </head>
 <body>
@@ -143,7 +145,9 @@
       <button class="btn btn-ghost" onclick="saveProfile()">💾 Save as Profile…</button>
       <button class="btn btn-ghost" onclick="resetSession()">🔄 Reset Page / Clear Session</button>
     </div>
-    <div class="hint">“Reset” wipes every browser key the widget uses (localStorage, sessionStorage, IndexedDB and first-party cookies) so the next launch starts a brand-new visitor — your saved JWT profiles are kept. Cookies set by the NXLINK host itself are third-party and can’t be cleared from this page; if the bot still remembers you, use a fresh incognito window.</div>
+    <label class="freshbox"><input type="checkbox" id="freshVisitor" checked>
+      <span><strong>Fresh visitor every load</strong> — loads the chat in a <em>credentialless</em> iframe so it gets an empty, throw-away storage partition. The NXLINK client keys the visitor off a <code>deviceUuid</code> it saves in its own origin&rsquo;s localStorage; that storage is third-party to this page and cannot be cleared from here, which is why a plain reload kept resuming the same conversation. Uncheck to test the stock embed behaviour (session persists across reloads).</span>
+    </label>
     <div class="banner" id="launchBanner"></div>
     <div class="preview" id="preview"></div>
   </div>
@@ -353,7 +357,9 @@ async function resetSession(){
   const ck = clearCookies();
   const db = await clearIndexedDB();
   banner('launchBanner','info',
-    `Cleared ${ls} localStorage + ${ss} sessionStorage key(s), ${ck} cookie(s), ${db} database(s). Reloading…`);
+    `Cleared ${ls} localStorage + ${ss} sessionStorage key(s), ${ck} cookie(s), ${db} database(s). ` +
+    `Reloading — the widget's own storage lives on the NXLINK origin and is reset by the ` +
+    `“fresh visitor” option, not by this wipe.`);
   // cache-busting param also stops the widget script being served from bfcache
   setTimeout(() => {
     const u = new URL(location.href);
@@ -376,11 +382,39 @@ function launchWidget(){
     banner('launchBanner','warn','A widget is already loaded on this page. Use “Reset Page / Clear Session” first to start clean.');
     return;
   }
+  // The NXLINK client builds its chat iframe at
+  //   <clientOrigin>/?isMobile=<bool>&jwt=<jwt>
+  // and the chat app there identifies the visitor by a `deviceUuid` it keeps in
+  // that origin's localStorage. That storage is third-party to this page, so we
+  // can't clear it — but a `credentialless` iframe gets a fresh, ephemeral
+  // partition per page load, so the app finds no deviceUuid and mints a new
+  // visitor. Patch createElement so the iframe carries the flag from birth
+  // (it has no effect once the frame has navigated).
+  const fresh = document.getElementById('freshVisitor').checked;
+  const nativeCreate = document.createElement.bind(document);
+  if(fresh && 'credentialless' in HTMLIFrameElement.prototype){
+    document.createElement = function(tag, ...rest){
+      const el = nativeCreate(tag, ...rest);
+      if(String(tag).toLowerCase() === 'iframe'){ try{ el.credentialless = true; }catch(e){} }
+      return el;
+    };
+    // the client builds the iframe synchronously during script execution
+    setTimeout(() => { document.createElement = nativeCreate; }, 15000);
+  }
   const s = document.createElement('script');
   s.id = 'live-chat-script';
   s.src = clientSrc(encodeURIComponent(jwt));
-  s.onload  = () => banner('launchBanner','ok','Widget loaded. Look for the chat bubble/popup (usually bottom-right). Use “Reset Page” to start a fresh session.');
-  s.onerror = () => banner('launchBanner','err','Failed to load the client script — check the URL / network / CORS.');
+  s.onload  = () => {
+    document.createElement = nativeCreate;
+    const f = document.querySelector('#nxLiveChatPopup iframe');
+    const isFresh = !!(f && f.credentialless);
+    banner('launchBanner','ok','Widget loaded' +
+      (fresh ? (isFresh ? ' as a NEW visitor (credentialless iframe).'
+                        : ' — but this browser ignored the credentialless flag, so the previous session may resume. Use an incognito window for a guaranteed fresh visitor.')
+             : ' (stock embed — the previous session resumes if this browser has chatted before).') +
+      ' Look for the chat bubble/popup (usually bottom-right).');
+  };
+  s.onerror = () => { document.createElement = nativeCreate; banner('launchBanner','err','Failed to load the client script — check the URL / network / CORS.'); };
   document.head.appendChild(s);
   widgetLoaded = true;
   banner('launchBanner','info','Loading live-chat client…');
