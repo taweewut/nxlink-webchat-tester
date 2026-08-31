@@ -141,8 +141,9 @@
     <div class="actions">
       <button class="btn btn-primary" id="btnLaunch" onclick="launchWidget()">💬 Load Chat Widget</button>
       <button class="btn btn-ghost" onclick="saveProfile()">💾 Save as Profile…</button>
-      <button class="btn btn-ghost" onclick="location.reload()">🔄 Reset Page / Clear Session</button>
+      <button class="btn btn-ghost" onclick="resetSession()">🔄 Reset Page / Clear Session</button>
     </div>
+    <div class="hint">“Reset” wipes every browser key the widget uses (localStorage, sessionStorage, IndexedDB and first-party cookies) so the next launch starts a brand-new visitor — your saved JWT profiles are kept. Cookies set by the NXLINK host itself are third-party and can’t be cleared from this page; if the bot still remembers you, use a fresh incognito window.</div>
     <div class="banner" id="launchBanner"></div>
     <div class="preview" id="preview"></div>
   </div>
@@ -285,6 +286,80 @@ function refresh(){
     `document.head.appendChild(s);`
   ];
   document.getElementById('preview').innerHTML = lines.join('\n');
+}
+
+/* ---------- reset / clear session ---------- */
+// The NXLINK live-chat client persists its visitor + conversation id in browser
+// storage, so a bare location.reload() re-attaches to the SAME session. Wipe
+// everything except this page's own keys, then reload.
+const KEEP_KEYS = [LS_KEY, LS_LAST];
+
+function clearWebStorage(store){
+  let n = 0;
+  try{
+    for(const k of Object.keys(store)){
+      if(KEEP_KEYS.includes(k)) continue;
+      store.removeItem(k); n++;
+    }
+  }catch(e){}
+  return n;
+}
+
+function clearCookies(){
+  let n = 0;
+  const host = location.hostname;
+  // strip the leading label one at a time: host, .host, parent domains…
+  const domains = [null, host, '.' + host];
+  const parts = host.split('.');
+  for(let i = 1; i < parts.length - 1; i++){
+    const d = parts.slice(i).join('.');
+    domains.push(d, '.' + d);
+  }
+  // every path segment of the current URL, so path-scoped cookies match too
+  const segs = location.pathname.split('/').filter(Boolean);
+  const paths = ['/'];
+  let acc = '';
+  for(const seg of segs){ acc += '/' + seg; paths.push(acc); }
+
+  for(const c of document.cookie.split(';')){
+    const name = c.split('=')[0].trim();
+    if(!name) continue;
+    for(const path of paths){
+      for(const dom of domains){
+        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=' + path +
+          (dom ? '; domain=' + dom : '');
+      }
+    }
+    n++;
+  }
+  return n;
+}
+
+async function clearIndexedDB(){
+  if(!window.indexedDB || !indexedDB.databases) return 0;
+  try{
+    const dbs = await indexedDB.databases();
+    await Promise.all(dbs.map(db => db.name && new Promise(res => {
+      const req = indexedDB.deleteDatabase(db.name);
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    })));
+    return dbs.length;
+  }catch(e){ return 0; }
+}
+
+async function resetSession(){
+  const ls = clearWebStorage(localStorage);
+  const ss = clearWebStorage(sessionStorage);
+  const ck = clearCookies();
+  const db = await clearIndexedDB();
+  banner('launchBanner','info',
+    `Cleared ${ls} localStorage + ${ss} sessionStorage key(s), ${ck} cookie(s), ${db} database(s). Reloading…`);
+  // cache-busting param also stops the widget script being served from bfcache
+  setTimeout(() => {
+    const u = new URL(location.href);
+    u.searchParams.set('reset', Date.now());
+    location.replace(u.toString());
+  }, 400);
 }
 
 /* ---------- launch embedded widget ---------- */
